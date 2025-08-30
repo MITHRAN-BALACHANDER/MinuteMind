@@ -106,6 +106,7 @@ export default function Home() {
   const [prompt, setPrompt] = useState('Summarize in concise bullet points. Include action items and owners.');
   const [summary, setSummary] = useState('');
   const [emails, setEmails] = useState('');
+  const [subject, setSubject] = useState('Meeting Summary - ' + new Date().toLocaleDateString());
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,10 +135,15 @@ export default function Home() {
       const r = await fetch('/api/mail', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ to: emails, subject: 'Meeting Summary', html: `<pre>${summary}</pre>` })
+        body: JSON.stringify({ 
+          to: emails, 
+          subject: subject, 
+          summary: summary,
+          meetingDate: new Date().toISOString()
+        })
       });
       if (!r.ok) throw new Error(await r.text());
-      setOk('Email sent.');
+      setOk('Email sent successfully!');
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Unknown error';
       setError(message);
@@ -276,6 +282,18 @@ export default function Home() {
               Share Summary
             </h2>
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email subject
+                </label>
+                <input 
+                  value={subject} 
+                  onChange={e=>setSubject(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="Meeting Summary - [Date]"
+                />
+              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Email recipients (comma-separated)
