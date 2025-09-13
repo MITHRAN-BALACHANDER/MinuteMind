@@ -21,7 +21,7 @@ Always include (if available): Decisions, Action Items (with owners & due dates)
     const user = `CUSTOM INSTRUCTION:\n${prompt}\n\nTRANSCRIPT:\n${transcript}`;
 
     const response = await qroq.chat.completions.create({
-      model: 'llama3-8b-8192',
+      model: 'llama-3.1-8b-instant',
       messages: [
         { role: 'system', content: sys },
         { role: 'user', content: user }
