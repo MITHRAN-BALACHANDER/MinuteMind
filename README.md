@@ -6,6 +6,7 @@ An intelligent meeting notes application that uses AI to automatically summarize
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)
 ![Next.js](https://img.shields.io/badge/Next.js-15.4.6-black.svg)
+![Shade CN](https://img.shields.io/badge/Shade%20CN-1.0.0-orange.svg)
 
 ## 🚀 Features
 
@@ -16,6 +17,7 @@ An intelligent meeting notes application that uses AI to automatically summarize
 - **Real-time Processing**: Instant AI processing with loading states
 - **Modern UI**: Clean, responsive interface built with React 19
 - **TypeScript**: Fully typed codebase for better development experience
+- **Shade CN Integration**: Enhanced UI theming and color management via Shade CN
 
 ## 🛠️ Tech Stack
 
@@ -25,6 +27,7 @@ An intelligent meeting notes application that uses AI to automatically summarize
 - **UI Library**: React 19.1.0
 - **Styling**: Native CSS with system fonts
 - **Build Tool**: Next.js built-in bundler
+- **Theming**: Shade CN for color and theme management
 
 ### Backend
 - **Runtime**: Node.js
@@ -295,12 +298,6 @@ npm run lint     # Run ESLint checks
 
 This project is licensed under the MIT License. See the LICENSE file for details.
 
-## 🆘 Support
-
-For support and questions:
-- Create an issue in the GitHub repository
-- Check the troubleshooting section
-- Review the API documentation
 
 ## 🔄 Changelog
 
@@ -312,5 +309,3 @@ For support and questions:
 - Next.js 15 with App Router
 
 ---
-
-Built with ❤️ using Next.js, TypeScript, and AI

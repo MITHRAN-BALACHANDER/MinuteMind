@@ -1,6 +1,17 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { 
   FileText, 
   Send, 
@@ -14,11 +25,6 @@ import {
   Copy,
   Download
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function Home() {
   const [transcript, setTranscript] = useState('');
@@ -30,23 +36,29 @@ export default function Home() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
-  const [dragActive, setDragActive] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   async function handleGenerate() {
-    setError(null); 
-    setOk(null); 
+    if (!transcript.trim()) return;
+    
     setLoading(true);
+    setError(null);
+    setOk(null);
     
     try {
       const r = await fetch('/api/summarize', {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transcript, prompt })
       });
+      
       if (!r.ok) throw new Error(await r.text());
-      const data = await r.json();
-      setSummary(data.summary || '');
+      
+      const { summary: newSummary } = await r.json();
+      setSummary(newSummary);
       setOk('Summary generated successfully!');
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Unknown error';
@@ -57,21 +69,19 @@ export default function Home() {
   }
 
   async function handleSend() {
-    setError(null); 
-    setOk(null); 
+    if (!summary || !emails.trim()) return;
+    
     setSending(true);
+    setError(null);
+    setOk(null);
     
     try {
       const r = await fetch('/api/mail', {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ 
-          to: emails, 
-          subject: subject, 
-          summary: summary,
-          meetingDate: new Date().toISOString()
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: emails, subject, body: summary })
       });
+      
       if (!r.ok) throw new Error(await r.text());
       setOk('Email sent successfully!');
     } catch (e: unknown) {
@@ -82,7 +92,7 @@ export default function Home() {
     }
   }
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
     
@@ -91,36 +101,31 @@ export default function Home() {
     reader.readAsText(f);
   }
 
-  function handleDrag(e: React.DragEvent) {
+  function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
-    e.stopPropagation();
-    
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+    setIsDragOver(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
+    setIsDragOver(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type === "text/plain") {
-        const reader = new FileReader();
-        reader.onload = () => setTranscript(String(reader.result || ''));
-        reader.readAsText(file);
-      }
-    }
+    const f = e.dataTransfer.files[0];
+    if (!f) return;
+    
+    const reader = new FileReader();
+    reader.onload = () => setTranscript(String(reader.result || ''));
+    reader.readAsText(f);
   }
 
   function copyToClipboard() {
     navigator.clipboard.writeText(summary);
-    setOk('Summary copied to clipboard!');
-    setTimeout(() => setOk(null), 2000);
+    setOk('Copied to clipboard!');
   }
 
   function downloadSummary() {
@@ -128,43 +133,31 @@ export default function Home() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `meeting-summary-${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
+    a.download = 'meeting-summary.txt';
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    setOk('Summary downloaded!');
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Skip Navigation Link for Screen Readers */}
-      <a 
-        href="#main-content" 
+      {/* Skip Navigation */}
+      <a
+        href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-primary text-primary-foreground px-4 py-2 rounded-md z-50"
       >
         Skip to main content
       </a>
 
       {/* Header */}
-      <header 
-        className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-        role="banner"
-      >
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-primary/10 rounded-lg" aria-hidden="true">
-              <Brain className="w-6 h-6 text-primary" />
+      <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+              <Brain className="w-5 h-5 text-primary-foreground" aria-hidden="true" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">MinuteMind</h1>
-              <p className="text-sm text-muted-foreground hidden sm:block">AI Meeting Notes</p>
-            </div>
-          
+            <h1 className="text-xl font-bold">MinuteMind</h1>
           </div>
-          {/* <div className="inline-flex items-center gap-2 px-3 py-3  rounded-full border-8 bg-muted/50 text-sm text-muted-foreground mb-6">
-            <Sparkles className="w-4 h-4" aria-hidden="true" />
-            Transform meetings into actionable insights
-          </div> */}
           <ThemeToggle />
         </div>
       </header>
@@ -181,359 +174,390 @@ export default function Home() {
             Transform meetings into actionable insights
           </div>
           
-          <h2 id="hero-heading" className="text-display bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text mb-4">
-            AI-Powered Meeting Summarizer
+          <h2 id="hero-heading" className="text-4xl md:text-5xl font-bold bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text text-transparent mb-4">
+            MinuteMind AI
           </h2>
           
-          <p className="text-body-large text-muted-foreground max-w-3xl mx-auto mb-8">
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
             Upload your meeting transcripts and get professional summaries with action items, 
             key decisions, and insights in seconds. Share with your team instantly.
           </p>
+          
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
+            <Badge variant="secondary" className="px-3 py-1">
+              <Brain className="w-3 h-3 mr-1" aria-hidden="true" />
+              AI-Powered
+            </Badge>
+            <Badge variant="secondary" className="px-3 py-1">
+              <CheckCircle className="w-3 h-3 mr-1" aria-hidden="true" />
+              Instant Results
+            </Badge>
+            <Badge variant="secondary" className="px-3 py-1">
+              <Mail className="w-3 h-3 mr-1" aria-hidden="true" />
+              Easy Sharing
+            </Badge>
+          </div>
         </section>
 
-        <div className="max-w-5xl mx-auto space-y-8">
-          {/* Upload Section */}
-          <section aria-labelledby="upload-heading">
-            <Card className="animate-slide-up">
-              <CardHeader>
-                <CardTitle id="upload-heading" className="flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-primary" aria-hidden="true" />
-                  Upload Your Transcript
-                </CardTitle>
-                <CardDescription>
-                  Start by uploading a text file or pasting your meeting transcript below
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* File Upload Area */}
-                <div
-                  className={`
-                    relative border-2 border-dashed rounded-lg p-8 text-center transition-colors
-                    ${dragActive 
-                      ? 'border-primary bg-primary/5' 
-                      : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-                    }
-                  `}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="File upload area. Drop files here or click to browse."
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      fileInputRef.current?.click();
-                    }
-                  }}
-                >
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="p-3 bg-muted rounded-full" aria-hidden="true">
-                      <FileText className="w-8 h-8 text-muted-foreground" />
+        <div className="max-w-5xl mx-auto">
+          <TooltipProvider>
+            <Tabs defaultValue="input" className="w-full">
+              <div className="flex justify-center mb-8">
+                <TabsList className="grid w-full max-w-lg grid-cols-3">
+                  <TabsTrigger value="input" className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    <span className="hidden sm:inline">Input</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="generate" className="flex items-center gap-2" disabled={!transcript.trim()}>
+                    <Brain className="w-4 h-4" />
+                    <span className="hidden sm:inline">Generate</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="share" className="flex items-center gap-2" disabled={!summary}>
+                    <Send className="w-4 h-4" />
+                    <span className="hidden sm:inline">Share</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="input" className="space-y-8 mt-0">
+                {/* File Upload Section */}
+                <Card className="animate-slide-up hover:shadow-lg transition-shadow duration-300">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Upload className="w-5 h-5 text-primary" aria-hidden="true" />
+                      Upload Transcript
+                    </CardTitle>
+                    <CardDescription>
+                      Drag and drop your meeting transcript file or click to browse
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      ref={dropZoneRef}
+                      className={`group relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 cursor-pointer hover:border-primary/50 hover:bg-accent/50 hover:scale-[1.01] ${
+                        isDragOver ? 'border-primary bg-accent/50 scale-[1.02] shadow-lg' : 'border-muted-foreground/25'
+                      }`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="File upload area. Click to select a file or drag and drop."
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          fileInputRef.current?.click();
+                        }
+                      }}
+                    >
+                      <div className="space-y-4">
+                        <div className={`w-12 h-12 mx-auto rounded-full bg-primary/10 flex items-center justify-center transition-all duration-300 ${
+                          isDragOver ? 'bg-primary/20 scale-110' : 'group-hover:bg-primary/15 group-hover:scale-105'
+                        }`}>
+                          <FileText className={`w-6 h-6 text-primary transition-transform duration-300 ${
+                            isDragOver ? 'scale-110' : 'group-hover:scale-105'
+                          }`} aria-hidden="true" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-medium">
+                            {isDragOver ? 'Drop your file here!' : 'Drop your transcript file here'}
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Supports .txt, .doc, .docx files up to 10MB
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-center gap-2 pt-2">
+                          <span className="text-sm text-muted-foreground">or</span>
+                          <Button variant="outline" size="sm" type="button" className="group-hover:border-primary/50">
+                            Browse Files
+                          </Button>
+                        </div>
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".txt,.doc,.docx"
+                        onChange={handleFileUpload}
+                        className="sr-only"
+                      />
                     </div>
-                    
-                    <div>
-                      <p className="text-lg font-medium mb-2">
-                        Drop your transcript file here, or{' '}
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="text-primary hover:underline focus:underline focus:outline-none"
-                          aria-describedby="file-requirements"
-                        >
-                          browse files
-                        </button>
-                      </p>
-                      <p id="file-requirements" className="text-sm text-muted-foreground">
-                        Supports .txt files up to 10MB
-                      </p>
+                  </CardContent>
+                </Card>
+
+                <Separator />
+
+                {/* Manual Input Section */}
+                <Card className="animate-slide-up hover:shadow-lg transition-shadow duration-300">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-primary" aria-hidden="true" />
+                      Meeting Transcript
+                    </CardTitle>
+                    <CardDescription>
+                      Paste your meeting transcript or notes for summarization
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <Textarea
+                        value={transcript}
+                        onChange={(e) => setTranscript(e.target.value)}
+                        placeholder="Paste your meeting transcript here...
+
+Example:
+[09:00] John: Good morning everyone, let's start with the quarterly review...
+[09:05] Sarah: The Q3 numbers look promising, revenue is up 15%...
+[09:10] Mike: We need to address the customer feedback regarding..."
+                        className="min-h-[300px] font-mono text-sm"
+                      />
+                      {transcript && (
+                        <div className="flex justify-between items-center text-xs text-muted-foreground">
+                          <span>
+                            {transcript.length} characters • {transcript.split(' ').length} words
+                          </span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => setTranscript('')}
+                                className="h-6 px-2 text-xs"
+                              >
+                                Clear
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Clear the transcript</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      )}
                     </div>
-                    
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".txt"
-                      onChange={handleFile}
-                      className="sr-only"
-                      aria-label="Choose transcript file"
-                    />
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                {/* Or Separator */}
-                <div className="relative" role="separator" aria-label="Alternative input method">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">Or paste directly</span>
-                  </div>
-                </div>
+              <TabsContent value="generate" className="space-y-8 mt-0">
+                {/* Prompt Configuration */}
+                <Card className="animate-slide-up hover:shadow-lg transition-shadow duration-300">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-primary" aria-hidden="true" />
+                      Summarization Instructions
+                    </CardTitle>
+                    <CardDescription>
+                      Customize how you want your meeting summary to be formatted
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Textarea
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                          placeholder="Describe how you want the summary formatted..."
+                          className="min-h-[100px]"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Pro tip: Be specific about what sections you want (action items, decisions, participants, etc.)
+                        </p>
+                      </div>
+                      
+                      {loading && (
+                        <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                            <span className="text-sm font-medium">Generating summary...</span>
+                          </div>
+                          <Progress value={75} className="w-full" />
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-4 w-1/2" />
+                            <Skeleton className="h-4 w-5/6" />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            This usually takes 5-10 seconds depending on transcript length
+                          </p>
+                        </div>
+                      )}
 
-                {/* Textarea */}
-                <div className="space-y-2">
-                  <label 
-                    htmlFor="transcript-input"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    Meeting Transcript
-                  </label>
-                  <Textarea
-                    id="transcript-input"
-                    value={transcript}
-                    onChange={(e) => setTranscript(e.target.value)}
-                    placeholder="Paste your meeting or call transcript here..."
-                    className="min-h-[120px] resize-none"
-                    aria-describedby="transcript-help"
-                  />
-                  <p id="transcript-help" className="text-xs text-muted-foreground">
-                    {transcript.length} characters{transcript.length > 0 && ` • ${Math.ceil(transcript.length / 4)} estimated words`}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          {/* Prompt Configuration */}
-          <section aria-labelledby="prompt-heading">
-            <Card className="animate-slide-up">
-              <CardHeader>
-                <CardTitle id="prompt-heading" className="flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-primary" aria-hidden="true" />
-                  Summarization Instructions
-                </CardTitle>
-                <CardDescription>
-                  Customize how you want your meeting summary to be formatted
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <label 
-                    htmlFor="prompt-input"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    Custom Prompt
-                  </label>
-                  <Input
-                    id="prompt-input"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Describe how you want the summary formatted..."
-                    aria-describedby="prompt-help"
-                  />
-                  <p id="prompt-help" className="text-xs text-muted-foreground">
-                    Pro tip: Be specific about what sections you want (action items, decisions, participants, etc.)
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          {/* Generate Button */}
-          <div className="flex justify-center animate-slide-up">
-            <Button
-              onClick={handleGenerate}
-              disabled={loading || !transcript.trim()}
-              size="lg"
-              className="min-w-[200px]"
-              aria-describedby={transcript.trim() ? "generate-help" : "generate-disabled-help"}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" aria-hidden="true" />
-                  Generating Summary...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 mr-2" aria-hidden="true" />
-                  Generate Summary
-                </>
-              )}
-            </Button>
-            {!transcript.trim() && (
-              <p id="generate-disabled-help" className="sr-only">
-                Button disabled. Please enter a transcript first.
-              </p>
-            )}
-            {transcript.trim() && (
-              <p id="generate-help" className="sr-only">
-                Generate an AI summary of your meeting transcript.
-              </p>
-            )}
-          </div>
-
-          {/* Summary Section */}
-          {(summary || loading) && (
-            <section aria-labelledby="summary-heading">
-              <Card className="animate-slide-up">
-                <CardHeader>
-                  <CardTitle id="summary-heading" className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-success" aria-hidden="true" />
-                      Generated Summary
-                    </div>
-                    {summary && (
-                      <div className="flex items-center gap-2" role="toolbar" aria-label="Summary actions">
+                      <div className="flex justify-center pt-4">
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={copyToClipboard}
-                          className="h-8"
-                          aria-label="Copy summary to clipboard"
+                          onClick={handleGenerate}
+                          disabled={loading || !transcript.trim()}
+                          size="lg"
+                          className="min-w-[200px] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300"
                         >
-                          <Copy className="w-4 h-4 mr-1" aria-hidden="true" />
-                          Copy
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={downloadSummary}
-                          className="h-8"
-                          aria-label="Download summary as text file"
-                        >
-                          <Download className="w-4 h-4 mr-1" aria-hidden="true" />
-                          Download
+                          {loading ? (
+                            <>
+                              <Loader2 className="w-5 h-5 mr-2 animate-spin" aria-hidden="true" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-5 h-5 mr-2" aria-hidden="true" />
+                              Generate Summary
+                            </>
+                          )}
                         </Button>
                       </div>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    Review and edit your AI-generated summary before sharing
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    id="summary-textarea"
-                    value={summary}
-                    onChange={(e) => setSummary(e.target.value)}
-                    placeholder="Your AI-generated summary will appear here..."
-                    className="min-h-[300px] font-mono text-sm"
-                    aria-describedby="summary-stats"
-                    aria-label="Editable meeting summary"
-                  />
-                  {summary && (
-                    <p id="summary-stats" className="text-xs text-muted-foreground mt-2">
-                      {summary.length} characters • {summary.split(' ').length} words
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </section>
-          )}
-
-          {/* Email Section */}
-          {summary && (
-            <section aria-labelledby="email-heading">
-              <Card className="animate-slide-up">
-                <CardHeader>
-                  <CardTitle id="email-heading" className="flex items-center gap-2">
-                    <Mail className="w-5 h-5 text-primary" aria-hidden="true" />
-                    Share Summary
-                  </CardTitle>
-                  <CardDescription>
-                    Send your meeting summary to team members via email
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <legend className="sr-only">Email details</legend>
-                    
-                    <div className="space-y-2">
-                      <label 
-                        htmlFor="email-subject"
-                        className="text-sm font-medium"
-                      >
-                        Email Subject
-                      </label>
-                      <Input
-                        id="email-subject"
-                        value={subject}
-                        onChange={(e) => setSubject(e.target.value)}
-                        placeholder="Meeting Summary - [Date]"
-                        aria-describedby="subject-help"
-                      />
-                      <p id="subject-help" className="sr-only">
-                        Enter the subject line for the email
-                      </p>
                     </div>
-                    
-                    <div className="space-y-2">
-                      <label 
-                        htmlFor="email-recipients"
-                        className="text-sm font-medium"
-                      >
-                        Recipients
-                      </label>
-                      <Input
-                        id="email-recipients"
-                        value={emails}
-                        onChange={(e) => setEmails(e.target.value)}
-                        placeholder="alice@company.com, bob@company.com"
-                        aria-describedby="recipients-help"
-                      />
-                      <p id="recipients-help" className="text-xs text-muted-foreground">
-                        Separate multiple email addresses with commas
-                      </p>
-                    </div>
-                  </fieldset>
+                  </CardContent>
+                </Card>
 
-                  <div className="flex justify-end pt-4">
-                    <Button
-                      onClick={handleSend}
-                      disabled={sending || !summary || !emails.trim()}
-                      className="min-w-[150px]"
-                      aria-describedby={(!summary || !emails.trim()) ? "send-disabled-help" : "send-help"}
-                    >
-                      {sending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4 mr-2" aria-hidden="true" />
-                          Send Email
-                        </>
+                {/* Summary Section */}
+                {summary && (
+                  <Card className="animate-slide-up hover:shadow-lg transition-shadow duration-300">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            <CheckCircle className="w-5 h-5 text-green-500" aria-hidden="true" />
+                            Generated Summary
+                          </CardTitle>
+                          <CardDescription>
+                            Review and edit your AI-generated summary before sharing
+                          </CardDescription>
+                        </div>
+                        <CardAction>
+                          <div className="flex items-center gap-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={copyToClipboard}
+                                >
+                                  <Copy className="w-4 h-4" aria-hidden="true" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Copy to clipboard</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={downloadSummary}
+                                >
+                                  <Download className="w-4 h-4" aria-hidden="true" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Download as file</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </CardAction>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <Textarea
+                        value={summary}
+                        onChange={(e) => setSummary(e.target.value)}
+                        placeholder="Your AI-generated summary will appear here..."
+                        className="min-h-[300px] font-mono text-sm"
+                      />
+                      {summary && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {summary.length} characters • {summary.split(' ').length} words
+                        </p>
                       )}
-                    </Button>
-                    {(!summary || !emails.trim()) && (
-                      <p id="send-disabled-help" className="sr-only">
-                        Button disabled. Please add recipients and ensure you have a summary.
-                      </p>
-                    )}
-                    {summary && emails.trim() && (
-                      <p id="send-help" className="sr-only">
-                        Send the meeting summary via email to the specified recipients.
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </section>
-          )}
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
 
-          {/* Status Messages */}
-          {(error || ok) && (
-            <div className="space-y-3 animate-fade-in">
-              {error && (
-                <div className="flex items-start gap-3 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-                  <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-destructive">Error occurred</p>
-                    <p className="text-sm text-destructive/80">{error}</p>
-                  </div>
-                </div>
-              )}
-              
-              {ok && (
-                <div className="flex items-start gap-3 p-4 bg-success/10 border border-success/20 rounded-lg">
-                  <CheckCircle className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
-                  <p className="font-medium text-success">{ok}</p>
-                </div>
-              )}
-            </div>
-          )}
+              <TabsContent value="share" className="space-y-8 mt-0">
+                {/* Email Section */}
+                {summary && (
+                  <Card className="animate-slide-up hover:shadow-lg transition-shadow duration-300">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Mail className="w-5 h-5 text-primary" aria-hidden="true" />
+                        Share Summary
+                      </CardTitle>
+                      <CardDescription>
+                        Send your meeting summary to team members via email
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Email Subject</label>
+                          <Input
+                            value={subject}
+                            onChange={(e) => setSubject(e.target.value)}
+                            placeholder="Meeting Summary - [Date]"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Recipients</label>
+                          <Input
+                            value={emails}
+                            onChange={(e) => setEmails(e.target.value)}
+                            placeholder="alice@company.com, bob@company.com"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Separate multiple email addresses with commas
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-4">
+                        <Button
+                          onClick={handleSend}
+                          disabled={sending || !summary || !emails.trim()}
+                          className="min-w-[150px] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300"
+                        >
+                          {sending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4 mr-2" aria-hidden="true" />
+                              Send Email
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            </Tabs>
+          </TooltipProvider>
         </div>
+
+        {/* Status Messages */}
+        {(error || ok) && (
+          <div className="fixed bottom-4 right-4 z-50 max-w-md animate-slide-up">
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-2 flex items-start gap-3 shadow-lg backdrop-blur-sm">
+                <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-destructive">Error</p>
+                  <p className="text-sm text-destructive/80">{error}</p>
+                </div>
+              </div>
+            )}
+            {ok && (
+              <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-start gap-3 shadow-lg backdrop-blur-sm">
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-green-700 dark:text-green-400">Success</p>
+                  <p className="text-sm text-green-600 dark:text-green-500">{ok}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Footer */}

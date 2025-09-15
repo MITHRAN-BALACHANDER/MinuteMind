@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MinuteMind - AI Meeting Notes Summarizer",
+  title: "MinuteMind ",
   description: "Transform your meeting transcripts into actionable summaries with AI. Generate professional meeting notes and share them instantly.",
   keywords: ["meeting notes", "AI summarizer", "transcript", "meeting summary", "productivity"],
-  authors: [{ name: "MinuteMind" }],
+  authors: [{ name: "Mithran" }],
   creator: "MinuteMind",
   publisher: "MinuteMind",
   viewport: {
